@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: GPL-2.0
+/* Copyright(c) 2012  Realtek Corporation.*/
+
+/************************************************************
+ * Description:
+ *
+ * This file is for RTL8821A Co-exist mechanism
+ *
+ * History
+ * 2012/08/22 Cosa first check in.
+ * 2012/11/14 Cosa Revise for 8821A 2Ant out sourcing.
+ *
+ ************************************************************/
+
+/************************************************************
+ * include files
+ ************************************************************/
+#include "halbt_precomp.h"
+/************************************************************
+ * Global variables, these are static variables
+ ************************************************************/
+static struct coex_dm_8821a_2ant glcoex_dm_8821a_2ant;
+static struct coex_dm_8821a_2ant *coex_dm = &glcoex_dm_8821a_2ant;
+static struct coex_sta_8821a_2ant glcoex_sta_8821a_2ant;
+static struct coex_sta_8821a_2ant *coex_sta = &glcoex_sta_8821a_2ant;
+
+static const char *const glbt_

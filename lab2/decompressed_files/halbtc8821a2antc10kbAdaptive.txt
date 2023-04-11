@@ -1,0 +1,290 @@
+// SPDX-License-Identifier: GPL-2.0
+/* Copyright(c) 2012  Realtek Corporation.*/
+
+/************************************************************
+ * Description:
+ *
+ * This file is for RTL8821A Co-exist mechanism
+ *
+ * History
+ * 2012/08/22 Cosa first check in.
+ * 2012/11/14 Cosa Revise for 8821A 2Ant out sourcing.
+ *
+ ************************************************************/
+
+/************************************************************
+ * include files
+ ************************************************************/
+#include "halbt_precomp.h"
+/************************************************************
+ * Global variables, these are static variables
+ ************************************************************/
+static struct coex_dm_8821a_2ant glcoex_dm_8821a_2ant;
+static struct coex_dm_8821a_2ant *coex_dm = &glcoex_dm_8821a_2ant;
+static struct coex_sta_8821a_2ant glcoex_sta_8821a_2ant;
+static struct coex_sta_8821a_2ant *coex_sta = &glcoex_sta_8821a_2ant;
+
+static const char *const glbt_info_src_8821a_2ant[] = {
+	"BT Info[wifi fw]",
+	"BT Info[bt rsp]",
+	"BT Info[bt auto report]",
+};
+
+static u32 glcoex_ver_date_8821a_2ant = 20130618;
+static u32 glcoex_ver_8821a_2ant = 0x5050;
+
+/************************************************************
+ * local function proto type if needed
+ *
+ * local function start with btc8821a2ant_
+ ************************************************************/
+static u8 btc8821a2ant_bt_rssi_state(struct btc_coexist *btcoexist,
+				     u8 level_num, u8 rssi_thresh,
+				     u8 rssi_thresh1)
+{
+	struct rtl_priv *rtlpriv = btcoexist->adapter;
+	long bt_rssi = 0;
+	u8 bt_rssi_state = coex_sta->pre_bt_rssi_state;
+
+	bt_rssi = coex_sta->bt_rssi;
+
+	if (level_num == 2) {
+		if ((coex_sta->pre_bt_rssi_state == BTC_RSSI_STATE_LOW) ||
+		    (coex_sta->pre_bt_rssi_state == BTC_RSSI_STATE_STAY_LOW)) {
+			if (bt_rssi >=
+			    rssi_thresh + BTC_RSSI_COEX_THRESH_TOL_8821A_2ANT) {
+				bt_rssi_state = BTC_RSSI_STATE_HIGH;
+				rtl_dbg(rtlpriv, COMP_BT_COEXIST, DBG_LOUD,
+					"[BTCoex], BT Rssi state switch to High\n");
+			} else {
+				bt_rssi_state = BTC_RSSI_STATE_STAY_LOW;
+				rtl_dbg(rtlpriv, COMP_BT_COEXIST, DBG_LOUD,
+					"[BTCoex], BT Rssi state stay at Low\n");
+			}
+		} else {
+			if (bt_rssi < rssi_thresh) {
+				bt_rssi_state = BTC_RSSI_STATE_LOW;
+				rtl_dbg(rtlpriv, COMP_BT_COEXIST, DBG_LOUD,
+					"[BTCoex], BT Rssi state switch to Low\n");
+			} else {
+				bt_rssi_state = BTC_RSSI_STATE_STAY_HIGH;
+				rtl_dbg(rtlpriv, COMP_BT_COEXIST, DBG_LOUD,
+					"[BTCoex], BT Rssi state stay at High\n");
+			}
+		}
+	} else if (level_num == 3) {
+		if (rssi_thresh > rssi_thresh1) {
+			rtl_dbg(rtlpriv, COMP_BT_COEXIST, DBG_LOUD,
+				"[BTCoex], BT Rssi thresh error!!\n");
+			return coex_sta->pre_bt_rssi_state;
+		}
+
+		if ((coex_sta->pre_bt_rssi_state == BTC_RSSI_STATE_LOW) ||
+		    (coex_sta->pre_bt_rssi_state == BTC_RSSI_STATE_STAY_LOW)) {
+			if (bt_rssi >=
+			    (rssi_thresh +
+			     BTC_RSSI_COEX_THRESH_TOL_8821A_2ANT)) {
+				bt_rssi_state = BTC_RSSI_STATE_MEDIUM;
+				rtl_dbg(rtlpriv, COMP_BT_COEXIST, DBG_LOUD,
+					"[BTCoex], BT Rssi state switch to Medium\n");
+			} else {
+				bt_rssi_state = BTC_RSSI_STATE_STAY_LOW;
+				rtl_dbg(rtlpriv, COMP_BT_COEXIST, DBG_LOUD,
+					"[BTCoex], BT Rssi state stay at Low\n");
+			}
+		} else if ((coex_sta->pre_bt_rssi_state ==
+			   BTC_RSSI_STATE_MEDIUM) ||
+			   (coex_sta->pre_bt_rssi_state ==
+			    BTC_RSSI_STATE_STAY_MEDIUM)) {
+			if (bt_rssi >=
+			    (rssi_thresh1 +
+			     BTC_RSSI_COEX_THRESH_TOL_8821A_2ANT)) {
+				bt_rssi_state = BTC_RSSI_STATE_HIGH;
+				rtl_dbg(rtlpriv, COMP_BT_COEXIST, DBG_LOUD,
+					"[BTCoex], BT Rssi state switch to High\n");
+			} else if (bt_rssi < rssi_thresh) {
+				bt_rssi_state = BTC_RSSI_STATE_LOW;
+				rtl_dbg(rtlpriv, COMP_BT_COEXIST, DBG_LOUD,
+					"[BTCoex], BT Rssi state switch to Low\n");
+			} else {
+				bt_rssi_state = BTC_RSSI_STATE_STAY_MEDIUM;
+				rtl_dbg(rtlpriv, COMP_BT_COEXIST, DBG_LOUD,
+					"[BTCoex], BT Rssi state stay at Medium\n");
+			}
+		} else {
+			if (bt_rssi < rssi_thresh1) {
+				bt_rssi_state = BTC_RSSI_STATE_MEDIUM;
+				rtl_dbg(rtlpriv, COMP_BT_COEXIST, DBG_LOUD,
+					"[BTCoex], BT Rssi state switch to Medium\n");
+			} else {
+				bt_rssi_state = BTC_RSSI_STATE_STAY_HIGH;
+				rtl_dbg(rtlpriv, COMP_BT_COEXIST, DBG_LOUD,
+					"[BTCoex], BT Rssi state stay at High\n");
+			}
+		}
+	}
+
+	coex_sta->pre_bt_rssi_state = bt_rssi_state;
+
+	return bt_rssi_state;
+}
+
+static u8 btc8821a2ant_wifi_rssi_state(struct btc_coexist *btcoexist,
+				       u8 index, u8 level_num,
+				       u8 rssi_thresh, u8 rssi_thresh1)
+{
+	struct rtl_priv *rtlpriv = btcoexist->adapter;
+	long wifi_rssi = 0;
+	u8 wifi_rssi_state = coex_sta->pre_wifi_rssi_state[index];
+
+	btcoexist->btc_get(btcoexist, BTC_GET_S4_WIFI_RSSI, &wifi_rssi);
+
+	if (level_num == 2) {
+		if ((coex_sta->pre_wifi_rssi_state[index] ==
+		     BTC_RSSI_STATE_LOW) ||
+		    (coex_sta->pre_wifi_rssi_state[index] ==
+		     BTC_RSSI_STATE_STAY_LOW)) {
+			if (wifi_rssi >=
+			    (rssi_thresh+BTC_RSSI_COEX_THRESH_TOL_8821A_2ANT)) {
+				wifi_rssi_state = BTC_RSSI_STATE_HIGH;
+				rtl_dbg(rtlpriv, COMP_BT_COEXIST, DBG_LOUD,
+					"[BTCoex], wifi RSSI state switch to High\n");
+			} else {
+				wifi_rssi_state = BTC_RSSI_STATE_STAY_LOW;
+				rtl_dbg(rtlpriv, COMP_BT_COEXIST, DBG_LOUD,
+					"[BTCoex], wifi RSSI state stay at Low\n");
+			}
+		} else {
+			if (wifi_rssi < rssi_thresh) {
+				wifi_rssi_state = BTC_RSSI_STATE_LOW;
+				rtl_dbg(rtlpriv, COMP_BT_COEXIST, DBG_LOUD,
+					"[BTCoex], wifi RSSI state switch to Low\n");
+			} else {
+				wifi_rssi_state = BTC_RSSI_STATE_STAY_HIGH;
+				rtl_dbg(rtlpriv, COMP_BT_COEXIST, DBG_LOUD,
+					"[BTCoex], wifi RSSI state stay at High\n");
+			}
+		}
+	} else if (level_num == 3) {
+		if (rssi_thresh > rssi_thresh1) {
+			rtl_dbg(rtlpriv, COMP_BT_COEXIST, DBG_LOUD,
+				"[BTCoex], wifi RSSI thresh error!!\n");
+			return coex_sta->pre_wifi_rssi_state[index];
+		}
+
+		if ((coex_sta->pre_wifi_rssi_state[index] ==
+		    BTC_RSSI_STATE_LOW) ||
+		    (coex_sta->pre_wifi_rssi_state[index] ==
+		     BTC_RSSI_STATE_STAY_LOW)) {
+			if (wifi_rssi >=
+			    (rssi_thresh +
+			     BTC_RSSI_COEX_THRESH_TOL_8821A_2ANT)) {
+				wifi_rssi_state = BTC_RSSI_STATE_MEDIUM;
+				rtl_dbg(rtlpriv, COMP_BT_COEXIST, DBG_LOUD,
+					"[BTCoex], wifi RSSI state switch to Medium\n");
+			} else {
+				wifi_rssi_state = BTC_RSSI_STATE_STAY_LOW;
+				rtl_dbg(rtlpriv, COMP_BT_COEXIST, DBG_LOUD,
+					"[BTCoex], wifi RSSI state stay at Low\n");
+			}
+		} else if ((coex_sta->pre_wifi_rssi_state[index] ==
+			   BTC_RSSI_STATE_MEDIUM) ||
+			   (coex_sta->pre_wifi_rssi_state[index] ==
+			    BTC_RSSI_STATE_STAY_MEDIUM)) {
+			if (wifi_rssi >= (rssi_thresh1 +
+			    BTC_RSSI_COEX_THRESH_TOL_8821A_2ANT)) {
+				wifi_rssi_state = BTC_RSSI_STATE_HIGH;
+				rtl_dbg(rtlpriv, COMP_BT_COEXIST, DBG_LOUD,
+					"[BTCoex], wifi RSSI state switch to High\n");
+			} else if (wifi_rssi < rssi_thresh) {
+				wifi_rssi_state = BTC_RSSI_STATE_LOW;
+				rtl_dbg(rtlpriv, COMP_BT_COEXIST, DBG_LOUD,
+					"[BTCoex], wifi RSSI state switch to Low\n");
+			} else {
+				wifi_rssi_state = BTC_RSSI_STATE_STAY_MEDIUM;
+				rtl_dbg(rtlpriv, COMP_BT_COEXIST, DBG_LOUD,
+					"[BTCoex], wifi RSSI state stay at Medium\n");
+			}
+		} else {
+			if (wifi_rssi < rssi_thresh1) {
+				wifi_rssi_state = BTC_RSSI_STATE_MEDIUM;
+				rtl_dbg(rtlpriv, COMP_BT_COEXIST, DBG_LOUD,
+					"[BTCoex], wifi RSSI state switch to Medium\n");
+			} else {
+				wifi_rssi_state = BTC_RSSI_STATE_STAY_HIGH;
+				rtl_dbg(rtlpriv, COMP_BT_COEXIST, DBG_LOUD,
+					"[BTCoex], wifi RSSI state stay at High\n");
+			}
+		}
+	}
+	coex_sta->pre_wifi_rssi_state[index] = wifi_rssi_state;
+
+	return wifi_rssi_state;
+}
+
+static
+void btc8821a2ant_limited_rx(struct btc_coexist *btcoexist, bool force_exec,
+			     bool rej_ap_agg_pkt, bool bt_ctrl_agg_buf_size,
+			     u8 agg_buf_size)
+{
+	bool reject_rx_agg = rej_ap_agg_pkt;
+	bool bt_ctrl_rx_agg_size = bt_ctrl_agg_buf_size;
+	u8 rx_agg_size = agg_buf_size;
+
+	/* Rx Aggregation related setting */
+	btcoexist->btc_set(btcoexist, BTC_SET_BL_TO_REJ_AP_AGG_PKT,
+			   &reject_rx_agg);
+	/* decide BT control aggregation buf size or not */
+	btcoexist->btc_set(btcoexist, BTC_SET_BL_BT_CTRL_AGG_SIZE,
+			   &bt_ctrl_rx_agg_size);
+	/* aggregation buf size, works when BT control Rx aggregation size */
+	btcoexist->btc_set(btcoexist, BTC_SET_U1_AGG_BUF_SIZE, &rx_agg_size);
+	/* real update aggregation setting */
+	btcoexist->btc_set(btcoexist, BTC_SET_ACT_AGGREGATE_CTRL, NULL);
+}
+
+static void btc8821a2ant_monitor_bt_ctr(struct btc_coexist *btcoexist)
+{
+	struct rtl_priv *rtlpriv = btcoexist->adapter;
+	struct btc_bt_link_info *bt_link_info = &btcoexist->bt_link_info;
+	u32 reg_hp_txrx, reg_lp_txrx, u4tmp;
+	u32 reg_hp_tx = 0, reg_hp_rx = 0, reg_lp_tx = 0, reg_lp_rx = 0;
+
+	reg_hp_txrx = 0x770;
+	reg_lp_txrx = 0x774;
+
+	u4tmp = btcoexist->btc_read_4byte(btcoexist, reg_hp_txrx);
+	reg_hp_tx = u4tmp & MASKLWORD;
+	reg_hp_rx = (u4tmp & MASKHWORD) >> 16;
+
+	u4tmp = btcoexist->btc_read_4byte(btcoexist, reg_lp_txrx);
+	reg_lp_tx = u4tmp & MASKLWORD;
+	reg_lp_rx = (u4tmp & MASKHWORD) >> 16;
+
+	coex_sta->high_priority_tx = reg_hp_tx;
+	coex_sta->high_priority_rx = reg_hp_rx;
+	coex_sta->low_priority_tx = reg_lp_tx;
+	coex_sta->low_priority_rx = reg_lp_rx;
+
+	if ((coex_sta->low_priority_rx >= 950) &&
+	    (coex_sta->low_priority_rx >= coex_sta->low_priority_tx) &&
+	    (!coex_sta->under_ips))
+		bt_link_info->slave_role = true;
+	else
+		bt_link_info->slave_role = false;
+
+	rtl_dbg(rtlpriv, COMP_BT_COEXIST, DBG_LOUD,
+		"[BTCoex], High Priority Tx/Rx (reg 0x%x) = 0x%x(%d)/0x%x(%d)\n",
+		reg_hp_txrx, reg_hp_tx, reg_hp_tx, reg_hp_rx, reg_hp_rx);
+	rtl_dbg(rtlpriv, COMP_BT_COEXIST, DBG_LOUD,
+		"[BTCoex], Low Priority Tx/Rx (reg 0x%x) = 0x%x(%d)/0x%x(%d)\n",
+		reg_lp_txrx, reg_lp_tx, reg_lp_tx, reg_lp_rx, reg_lp_rx);
+
+	/* reset counter */
+	btcoexist->btc_write_1byte(btcoexist, 0x76e, 0xc);
+}
+
+static void btc8821a2ant_monitor_wifi_ctr(struct btc_coexist *btcoexist)
+{
+	if (coex_sta->under_ips) {
+		coex_sta->crc_ok_cck = 0;
